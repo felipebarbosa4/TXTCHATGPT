@@ -1,0 +1,99 @@
+
+-------------------------------
+To modify your code to work with a `docx` file instead of a `txt` file, you will need to use the `python-docx` module. This module allows you to open, read, and write Microsoft Word `.docx` files. If you haven't already installed it, you can do so using pip:
+```shell
+pip install python-docx
+```
+
+Now, let's adapt your code to handle `.docx` files:
+
+```python
+import openai
+import os
+import time
+import logging
+from docx import Document
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Your original functions here (kept for context)
+
+def process_docx_file(file_path, api_key, last_processed):
+    trigger_phrase = "STARTING321"
+    stop_phrase = "STOPTa"
+    modified = False
+    stop = False
+
+    # Open the docx file
+    document = Document(file_path)
+    paragraphs = document.paragraphs[last_processed:]
+
+    new_content = []
+    for paragraph in paragraphs:
+        text = paragraph.text
+        if stop_phrase in text:
+            stop = True
+            break
+        if trigger_phrase in text:
+            question = text.split(trigger_phrase)[-1].strip()
+            logging.info(f"Trigger phrase found, sending query: {question}")
+            response = query_chatgpt(question, api_key)
+            if response:
+                new_content.append(response)
+                modified = True
+                print(response)
+                logging.info("Received response from ChatGPT, updating document.")
+            else:
+                logging.warning("No response received, skipping update.")
+    if modified:
+        for response in new_content:
+            document.add_paragraph(response)
+        document.save(file_path)
+        logging.info("Document updated with new responses.")
+
+    last_processed += len(paragraphs)
+    return last_processed, stop
+
+def watch_docx_file(file_path, interval, api_key):
+    last_processed = 0
+    logging.info(f"Starting to watch document: {file_path}")
+    while True:
+        try:
+            last_processed, stop = process_docx_file(file_path, api_key, last_processed)
+            if stop:
+                logging.info("Stop phrase detected, stopping the watcher.")
+                break
+            time.sleep(interval)
+        except KeyboardInterrupt:
+            logging.info("Manual interruption received, stopping the watcher.")
+            break
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            break
+
+def main():
+    # Path to your Word document
+    file_path = 'mydoc.docx'
+
+    # How often to check the document for changes (in seconds)
+    check_interval = 5
+
+    # Your OpenAI API key
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        logging.error("OpenAI API key not found. Set the OPENAI_API_KEY environment variable.")
+        return
+
+    watch_docx_file(file_path, check_interval, api_key)
+
+if __name__ == "__main__":
+    main()
+```
+
+Please note the following changes from your original code:
+
+1. The `process_text_file` function has been replaced with `process_docx_file`, which processes `.docx` files.
+2. The `watch_file` function has been replaced with `watch_docx_file` to work with `.docx` files.
+3. Instead of opening and reading a text file, we are using the `Document` class from `python-docx` to work with paragraphs in the `.docx` file.
+
+With these changes, your script should be able to check and work inside `mydoc.docx`. Ensure that you have the correct path to your `.docx` file and your `OPENAI_API_KEY` is set correctly in your environment variables.
